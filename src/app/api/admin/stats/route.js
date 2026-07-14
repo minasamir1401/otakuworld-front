@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import fs from 'fs';
-import path from 'path';
 
 const configPath = './admin_config.json';
 
@@ -14,27 +13,27 @@ function readConfig() {
   return { username: 'admin', password: 'adminpassword' };
 }
 
-function isPidRunning(pid) {
-  if (!pid) return false;
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (e) {
-    return e.code === 'EPERM';
-  }
-}
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
+const BACKEND_SECRET = process.env.BACKEND_SECRET || 'otakuworld-secret-2025';
 
-function getScraperStatus(name) {
-  const pidPath = './' + name + '.pid';
-  if (fs.existsSync(pidPath)) {
-    try {
-      const pid = parseInt(fs.readFileSync(pidPath, 'utf8').trim(), 10);
-      if (isPidRunning(pid)) {
-        return { running: true, pid };
-      }
-    } catch (e) {}
+async function getBackendScraperStatus() {
+  try {
+    const res = await fetch(`${BACKEND_URL}/scraper/status`, {
+      headers: { 'Authorization': `Bearer ${BACKEND_SECRET}` },
+      signal: AbortSignal.timeout(3000)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success) return data.scrapers;
+    }
+  } catch (e) {
+    console.error('[Stats] Could not reach backend:', e.message);
   }
-  return { running: false, pid: null };
+  return {
+    animeScraper: { running: false, pid: null },
+    moviesScraper: { running: false, pid: null },
+    scheduleSync: { running: false, pid: null }
+  };
 }
 
 export async function GET(request) {
@@ -146,10 +145,8 @@ export async function GET(request) {
       })
     );
 
-    // Scrapers statuses
-    const animeScraper = getScraperStatus('anime_scraper');
-    const moviesScraper = getScraperStatus('movies_scraper');
-    const scheduleSync = getScraperStatus('schedule_sync');
+    // Scrapers statuses (fetched from Backend API)
+    const scrapers = await getBackendScraperStatus();
 
     return NextResponse.json({
       success: true,
@@ -165,11 +162,7 @@ export async function GET(request) {
         visits24h,
         resolvedTopPages
       },
-      scrapers: {
-        animeScraper,
-        moviesScraper,
-        scheduleSync
-      }
+      scrapers
     });
   } catch (error) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
