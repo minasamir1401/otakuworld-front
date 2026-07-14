@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import * as cp from 'child_process';
 import fs from 'fs';
 import path from 'path';
+import prisma from '@/lib/db';
 
 const configPath = './admin_config.json';
 
@@ -122,6 +123,38 @@ export async function GET(request) {
       logs 
     });
   } catch (error) {
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(request) {
+  try {
+    const authHeader = request.headers.get('Authorization');
+    const config = readConfig();
+    const currentToken = Buffer.from(`${config.username}:${config.password}`).toString('base64');
+
+    if (!authHeader || authHeader !== `Bearer ${currentToken}`) {
+      return NextResponse.json({ success: false, error: 'غير مصرح بالدخول' }, { status: 403 });
+    }
+
+    console.log('🗑️ Wiping all anime data from PostgreSQL...');
+    
+    // Delete in order to satisfy foreign key constraints
+    await prisma.visit.deleteMany();
+    await prisma.videoServer.deleteMany();
+    await prisma.downloadLink.deleteMany();
+    await prisma.episode.deleteMany();
+    await prisma.season.deleteMany();
+    await prisma.anime.deleteMany();
+
+    console.log('✅ All anime data deleted successfully!');
+
+    return NextResponse.json({ 
+      success: true, 
+      message: 'تم حذف جميع الأنميات والبيانات وقاعدة البيانات بالكامل بنجاح!' 
+    });
+  } catch (error) {
+    console.error('Failed to wipe database:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

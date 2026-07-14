@@ -1554,6 +1554,7 @@ export default function AdminPage() {
 function BackupTab({ token, fetchStats }) {
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [isWiping, setIsWiping] = useState(false);
   const [importFile, setImportFile] = useState(null);
   const [importMessage, setImportMessage] = useState('');
   const [importError, setImportError] = useState('');
@@ -1652,6 +1653,39 @@ function BackupTab({ token, fetchStats }) {
     }
   };
 
+  const handleWipeDatabase = async () => {
+    const confirmation1 = confirm('تحذير شديد الخطورة: سيتم حذف كافة الأنميات والمواسم والحلقات وسيرفرات البث والتحميل والزيارات نهائياً من قاعدة البيانات السحابية PostgreSQL! هل تريد الاستمرار؟');
+    if (!confirmation1) return;
+    
+    const confirmation2 = confirm('تنبيه أخير: هذا الإجراء لا يمكن التراجع عنه بأي شكل من الأشكال وسيتم مسح قاعدة البيانات بالكامل. هل أنت متأكد بنسبة 100%؟');
+    if (!confirmation2) return;
+
+    const authPass = prompt('يرجى كتابة كلمة "DELETE" لتأكيد رغبتك في حذف قاعدة البيانات:');
+    if (authPass !== 'DELETE') {
+      alert('لم تقم بكتابة كلمة التأكيد بشكل صحيح. تم إلغاء العملية.');
+      return;
+    }
+
+    setIsWiping(true);
+    try {
+      const res = await fetch('/api/admin/migrate', {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message);
+        fetchStats();
+      } else {
+        alert(`فشلت العملية: ${data.error}`);
+      }
+    } catch (err) {
+      alert(`حدث خطأ أثناء مسح البيانات: ${err.message}`);
+    } finally {
+      setIsWiping(false);
+    }
+  };
+
   return (
     <div className="glass-panel p-6 space-y-6">
       <div className="border-b border-border-glass pb-4">
@@ -1732,6 +1766,35 @@ function BackupTab({ token, fetchStats }) {
         </div>
 
       </div>
+
+      {/* Wipe Database Panel */}
+      <div className="border border-red-500/20 bg-red-500/5 p-6 rounded-2xl space-y-4">
+        <h5 className="font-black text-xs text-red-500 flex items-center gap-2">
+          <span>⚠️</span>
+          <span>منطقة الخطر: حذف قاعدة البيانات</span>
+        </h5>
+        <p className="text-[10px] text-red-400/80 font-semibold leading-relaxed text-right">
+          هذا الإجراء يقوم بمسح وحذف كافة الأنميات، والمواسم، والحلقات، وسيرفرات البث، وروابط التحميل، وإحصائيات الزيارات نهائياً من قاعدة بيانات PostgreSQL السحابية. يرجى توخي الحذر الشديد!
+        </p>
+        <button
+          onClick={handleWipeDatabase}
+          disabled={isWiping}
+          className="w-full py-3 bg-red-600 hover:bg-red-700 text-white text-xs font-black rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+        >
+          {isWiping ? (
+            <>
+              <div className="w-4 h-4 border-2 border-t-white border-red-300 rounded-full animate-spin" />
+              <span>جاري مسح قاعدة البيانات...</span>
+            </>
+          ) : (
+            <>
+              <span>🗑️</span>
+              <span>حذف كافة الأنميات والبيانات نهائياً</span>
+            </>
+          )}
+        </button>
+      </div>
+
     </div>
   );
 }
