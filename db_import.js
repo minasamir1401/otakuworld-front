@@ -11,7 +11,18 @@ async function main() {
     process.exit(0);
   }
 
-  console.log('🚀 Starting data import to PostgreSQL on Vercel...');
+  // Check if database is already populated to run only once
+  try {
+    const existingAnimeCount = await prisma.anime.count();
+    if (existingAnimeCount > 0) {
+      console.log(`ℹ️ PostgreSQL database already has ${existingAnimeCount} animes. Skipping migration to prevent duplicate runs.`);
+      process.exit(0);
+    }
+  } catch (err) {
+    console.error('⚠️ Failed to check anime count in database:', err.message);
+  }
+
+  console.log('🚀 Starting data import to PostgreSQL...');
   const rawData = fs.readFileSync(dataPath, 'utf8');
   const { animes, visits } = JSON.parse(rawData);
 
