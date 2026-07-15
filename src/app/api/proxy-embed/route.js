@@ -4,7 +4,7 @@ import { HttpsProxyAgent } from 'https-proxy-agent';
 import fs from 'fs';
 import path from 'path';
 
-const configPath = './admin_config.json';
+const configPath = path.resolve(process.cwd(), 'admin_config.json');
 
 function getBypassConfig() {
   try {

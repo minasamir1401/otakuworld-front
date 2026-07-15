@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import fs from 'fs';
+import path from 'path';
 
-const configPath = './admin_config.json';
+const configPath = path.resolve(process.cwd(), 'admin_config.json');
 
 function readConfig() {
   try {
