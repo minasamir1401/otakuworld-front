@@ -54,7 +54,6 @@ ENV PORT=3000
 ENV NODE_ENV=production
 
 # Start command
-# 1. Run Prisma DB push to ensure PostgreSQL schema is initialized.
-# 2. Run the import script automatically if migration_data.json exists.
-# 3. Boot Next.js in production mode.
-CMD ["sh", "-c", "npx prisma db push && npm run start"]
+# Boot Next.js in production mode.
+CMD ["sh", "-c", "npm run start"]
+
