@@ -155,10 +155,11 @@ export async function GET(request) {
     let response = null;
     let lastError = null;
 
-    // 1. Try using the admin-configured Cloudflare cookies & userAgent first (Direct connection)
+    // 1. Try using the admin-configured Cloudflare cookies & userAgent first
     const bypass = getBypassConfig();
     if (bypass.cfCookie && bypass.userAgent) {
       try {
+        const agent = bypass.cfProxy ? new HttpsProxyAgent(bypass.cfProxy) : null;
         response = await axios.get(embedUrl, {
           headers: {
             ...HEADERS,
@@ -166,12 +167,14 @@ export async function GET(request) {
             'Cookie': bypass.cfCookie,
             'Referer': new URL(embedUrl).origin + '/'
           },
+          httpsAgent: agent || undefined,
+          proxy: agent ? false : undefined,
           timeout: 10000,
           responseType: 'text'
         });
       } catch (err) {
         lastError = err;
-        console.warn('Configured Cloudflare bypass direct request failed:', err.message);
+        console.warn('Configured Cloudflare bypass request failed:', err.message);
       }
     }
 

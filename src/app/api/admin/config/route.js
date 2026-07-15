@@ -36,7 +36,8 @@ export async function GET(request) {
     return NextResponse.json({
       success: true,
       cfCookie: config.cfCookie || '',
-      userAgent: config.userAgent || ''
+      userAgent: config.userAgent || '',
+      cfProxy: config.cfProxy || ''
     });
   } catch (error) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
@@ -55,10 +56,11 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    const { cfCookie, userAgent } = body;
+    const { cfCookie, userAgent, cfProxy } = body;
 
     config.cfCookie = cfCookie || '';
     config.userAgent = userAgent || '';
+    config.cfProxy = cfProxy || '';
 
     const saved = writeConfig(config);
     if (!saved) {
