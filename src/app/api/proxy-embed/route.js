@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import axios from 'axios';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 
 const AD_DOMAINS = [
   'dd133.com', 'llvpn.com', 'acscdn.com', 'jnbhi.com',
@@ -113,22 +114,17 @@ function cleanHtml(html, embedUrl) {
 }
 
 const PROXIES = [
-  { host: '31.59.20.176', port: 6754 },
-  { host: '31.56.127.193', port: 7684 },
-  { host: '45.38.107.97', port: 6014 },
-  { host: '198.105.121.200', port: 6462 },
-  { host: '64.137.96.74', port: 6641 },
-  { host: '198.23.243.226', port: 6361 },
-  { host: '38.154.185.97', port: 6370 },
-  { host: '84.247.60.125', port: 6095 },
-  { host: '142.111.67.146', port: 5611 },
-  { host: '191.96.254.138', port: 6185 }
+  'http://eepvcuhn:pak11kmxun9g@31.59.20.176:6754',
+  'http://eepvcuhn:pak11kmxun9g@31.56.127.193:7684',
+  'http://eepvcuhn:pak11kmxun9g@45.38.107.97:6014',
+  'http://eepvcuhn:pak11kmxun9g@198.105.121.200:6462',
+  'http://eepvcuhn:pak11kmxun9g@64.137.96.74:6641',
+  'http://eepvcuhn:pak11kmxun9g@198.23.243.226:6361',
+  'http://eepvcuhn:pak11kmxun9g@38.154.185.97:6370',
+  'http://eepvcuhn:pak11kmxun9g@84.247.60.125:6095',
+  'http://eepvcuhn:pak11kmxun9g@142.111.67.146:5611',
+  'http://eepvcuhn:pak11kmxun9g@191.96.254.138:6185'
 ];
-
-const PROXY_AUTH = {
-  username: 'eepvcuhn',
-  password: 'pak11kmxun9g'
-};
 
 export async function GET(request) {
   try {
@@ -142,23 +138,20 @@ export async function GET(request) {
     let response = null;
     let lastError = null;
 
-    // Shuffle and try up to 3 random proxies
+    // Shuffle and try up to 3 random proxies using HttpsProxyAgent
     const shuffledProxies = [...PROXIES].sort(() => 0.5 - Math.random());
     const maxAttempts = Math.min(3, shuffledProxies.length);
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      const currentProxy = shuffledProxies[attempt];
+      const proxyUrl = shuffledProxies[attempt];
       try {
+        const agent = new HttpsProxyAgent(proxyUrl);
         response = await axios.get(embedUrl, {
           headers: { ...HEADERS, 'Referer': new URL(embedUrl).origin + '/' },
           timeout: 10000,
           responseType: 'text',
-          proxy: {
-            protocol: 'http',
-            host: currentProxy.host,
-            port: currentProxy.port,
-            auth: PROXY_AUTH
-          }
+          httpsAgent: agent,
+          proxy: false // Tell Axios not to use its built-in proxy config
         });
 
         if (response && response.status === 200) {
@@ -166,7 +159,7 @@ export async function GET(request) {
         }
       } catch (err) {
         lastError = err;
-        console.error(`Proxy embed attempt ${attempt + 1} failed using ${currentProxy.host}:`, err.message);
+        console.error(`Proxy embed attempt ${attempt + 1} failed:`, err.message);
       }
     }
 
