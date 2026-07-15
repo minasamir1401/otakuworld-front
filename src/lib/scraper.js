@@ -1,6 +1,6 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
-import prisma from '@/lib/prisma';
+import prisma from '@/lib/db';
 
 const BASE_URL = 'https://eta.animerco.org';
 
