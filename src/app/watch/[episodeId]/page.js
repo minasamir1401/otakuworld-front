@@ -236,7 +236,7 @@ export default function WatchPage() {
                 ) : (
                   <iframe 
                     ref={iframeRef}
-                    src={isAkwam 
+                    src={(isAkwam || (activeServer.embedUrl && activeServer.embedUrl.includes('eta.animerco.org')))
                       ? `/api/proxy-embed?url=${encodeURIComponent(activeServer.embedUrl.replace('mega.nz/file/', 'mega.nz/embed/'))}` 
                       : activeServer.embedUrl.replace('mega.nz/file/', 'mega.nz/embed/')}
                     title="Watch Player" 
