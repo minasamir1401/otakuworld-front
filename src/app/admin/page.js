@@ -1622,26 +1622,39 @@ function BackupTab({ token, fetchStats }) {
             return;
           }
 
-          const res = await fetch('/api/admin/backup', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ animes: parsed.animes })
-          });
-          const result = await res.json();
+          const totalAnimes = parsed.animes.length;
+          const chunkSize = 15;
+          let importedCount = 0;
 
-          if (result.success) {
-            setImportMessage(result.message);
-            setImportFile(null);
-            if (fileInputRef.current) fileInputRef.current.value = '';
-            fetchStats();
-          } else {
-            setImportError(result.error || 'فشلت عملية الاستيراد');
+          setImportMessage(`🚀 بدء استيراد البيانات على دفعات (حجم الدفعة: ${chunkSize})...`);
+
+          for (let i = 0; i < totalAnimes; i += chunkSize) {
+            const chunk = parsed.animes.slice(i, i + chunkSize);
+            const progressPercent = Math.round((i / totalAnimes) * 100);
+            setImportMessage(`⏳ جاري رفع الدفعة ${Math.floor(i / chunkSize) + 1} (${progressPercent}% - تم استيراد ${importedCount}/${totalAnimes})...`);
+
+            const res = await fetch('/api/admin/backup', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({ animes: chunk })
+            });
+
+            const result = await res.json();
+            if (!result.success) {
+              throw new Error(result.error || `فشلت استعادة الدفعة رقم ${Math.floor(i / chunkSize) + 1}`);
+            }
+            importedCount += chunk.length;
           }
+
+          setImportMessage(`🎉 تم استعادة النسخة الاحتياطية بنجاح! تم استيراد جميع الأنميات (${importedCount} عمل).`);
+          setImportFile(null);
+          if (fileInputRef.current) fileInputRef.current.value = '';
+          fetchStats();
         } catch (parseErr) {
-          setImportError('فشل تحليل ملف JSON. تأكد من أن الملف سليم وغير تالف.');
+          setImportError(parseErr.message || 'فشل تحليل ملف JSON. تأكد من أن الملف سليم وغير تالف.');
         } finally {
           setIsImporting(false);
         }
