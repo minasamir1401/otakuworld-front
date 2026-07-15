@@ -13,8 +13,12 @@ function readConfig() {
   return { username: 'admin', password: 'adminpassword' };
 }
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
+let BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
+if (BACKEND_URL && !BACKEND_URL.startsWith('http://') && !BACKEND_URL.startsWith('https://')) {
+  BACKEND_URL = 'https://' + BACKEND_URL;
+}
 const BACKEND_SECRET = process.env.BACKEND_SECRET || 'otakuworld-secret-2025';
+
 
 async function getBackendScraperStatus() {
   try {

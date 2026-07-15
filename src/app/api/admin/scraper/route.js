@@ -3,8 +3,12 @@ import fs from 'fs';
 
 const configPath = './admin_config.json';
 // URL of the Backend container (set BACKEND_URL env var in Dokploy)
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
+let BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
+if (BACKEND_URL && !BACKEND_URL.startsWith('http://') && !BACKEND_URL.startsWith('https://')) {
+  BACKEND_URL = 'https://' + BACKEND_URL;
+}
 const BACKEND_SECRET = process.env.BACKEND_SECRET || 'otakuworld-secret-2025';
+
 
 function readConfig() {
   try {
