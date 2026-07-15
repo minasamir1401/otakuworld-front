@@ -112,6 +112,24 @@ function cleanHtml(html, embedUrl) {
   return html;
 }
 
+const PROXIES = [
+  { host: '31.59.20.176', port: 6754 },
+  { host: '31.56.127.193', port: 7684 },
+  { host: '45.38.107.97', port: 6014 },
+  { host: '198.105.121.200', port: 6462 },
+  { host: '64.137.96.74', port: 6641 },
+  { host: '198.23.243.226', port: 6361 },
+  { host: '38.154.185.97', port: 6370 },
+  { host: '84.247.60.125', port: 6095 },
+  { host: '142.111.67.146', port: 5611 },
+  { host: '191.96.254.138', port: 6185 }
+];
+
+const PROXY_AUTH = {
+  username: 'eepvcuhn',
+  password: 'pak11kmxun9g'
+};
+
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -121,11 +139,49 @@ export async function GET(request) {
       return new NextResponse('Invalid url', { status: 400 });
     }
 
-    const response = await axios.get(embedUrl, {
-      headers: { ...HEADERS, 'Referer': new URL(embedUrl).origin + '/' },
-      timeout: 12000,
-      responseType: 'text',
-    });
+    let response = null;
+    let lastError = null;
+
+    // Shuffle and try up to 3 random proxies
+    const shuffledProxies = [...PROXIES].sort(() => 0.5 - Math.random());
+    const maxAttempts = Math.min(3, shuffledProxies.length);
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const currentProxy = shuffledProxies[attempt];
+      try {
+        response = await axios.get(embedUrl, {
+          headers: { ...HEADERS, 'Referer': new URL(embedUrl).origin + '/' },
+          timeout: 10000,
+          responseType: 'text',
+          proxy: {
+            protocol: 'http',
+            host: currentProxy.host,
+            port: currentProxy.port,
+            auth: PROXY_AUTH
+          }
+        });
+
+        if (response && response.status === 200) {
+          break;
+        }
+      } catch (err) {
+        lastError = err;
+        console.error(`Proxy embed attempt ${attempt + 1} failed using ${currentProxy.host}:`, err.message);
+      }
+    }
+
+    // Ultimate fallback: direct connection
+    if (!response) {
+      try {
+        response = await axios.get(embedUrl, {
+          headers: { ...HEADERS, 'Referer': new URL(embedUrl).origin + '/' },
+          timeout: 8000,
+          responseType: 'text'
+        });
+      } catch (err) {
+        throw lastError || err;
+      }
+    }
 
     const cleaned = cleanHtml(response.data, embedUrl);
 
