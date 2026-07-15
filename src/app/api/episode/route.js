@@ -68,30 +68,34 @@ export async function GET(request) {
       console.log(`📡 On-demand scraping sources for: ${episode.title}`);
       const { servers, downloads } = await scrapeEpisodeSources(episode.url);
 
-      // Clean old records first to prevent duplicates
-      await prisma.videoServer.deleteMany({ where: { episodeId: episode.id } });
-      await prisma.downloadLink.deleteMany({ where: { episodeId: episode.id } });
+      if (servers.length > 0 || downloads.length > 0) {
+        // Clean old records first to prevent duplicates
+        await prisma.videoServer.deleteMany({ where: { episodeId: episode.id } });
+        await prisma.downloadLink.deleteMany({ where: { episodeId: episode.id } });
 
-      // Save watch servers to database
-      if (servers.length > 0) {
-        await prisma.videoServer.createMany({
-          data: servers.map(srv => ({
-            name: srv.name,
-            embedUrl: srv.embedUrl,
-            episodeId: episode.id
-          }))
-        });
-      }
+        // Save watch servers to database
+        if (servers.length > 0) {
+          await prisma.videoServer.createMany({
+            data: servers.map(srv => ({
+              name: srv.name,
+              embedUrl: srv.embedUrl,
+              episodeId: episode.id
+            }))
+          });
+        }
 
-      // Save download redirect links to database
-      if (downloads.length > 0) {
-        await prisma.downloadLink.createMany({
-          data: downloads.map(dl => ({
-            quality: dl.quality,
-            url: dl.url,
-            episodeId: episode.id
-          }))
-        });
+        // Save download redirect links to database
+        if (downloads.length > 0) {
+          await prisma.downloadLink.createMany({
+            data: downloads.map(dl => ({
+              quality: dl.quality,
+              url: dl.url,
+              episodeId: episode.id
+            }))
+          });
+        }
+      } else {
+        console.warn(`⚠️ On-demand scraping failed or returned empty. Preserving existing database records.`);
       }
 
       // Refetch the episode with newly scraped details
