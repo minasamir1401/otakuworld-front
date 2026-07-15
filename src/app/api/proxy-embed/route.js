@@ -1,6 +1,23 @@
 import { NextResponse } from 'next/server';
 import axios from 'axios';
 import { HttpsProxyAgent } from 'https-proxy-agent';
+import fs from 'fs';
+import path from 'path';
+
+const configPath = './admin_config.json';
+
+function getBypassConfig() {
+  try {
+    if (fs.existsSync(configPath)) {
+      const data = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      return {
+        cfCookie: data.cfCookie || '',
+        userAgent: data.userAgent || ''
+      };
+    }
+  } catch (e) {}
+  return { cfCookie: '', userAgent: '' };
+}
 
 const AD_DOMAINS = [
   'dd133.com', 'llvpn.com', 'acscdn.com', 'jnbhi.com',
@@ -138,36 +155,77 @@ export async function GET(request) {
     let response = null;
     let lastError = null;
 
-    // Shuffle and try up to 3 random proxies using HttpsProxyAgent
-    const shuffledProxies = [...PROXIES].sort(() => 0.5 - Math.random());
-    const maxAttempts = Math.min(3, shuffledProxies.length);
-
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      const proxyUrl = shuffledProxies[attempt];
+    // 1. Try using the admin-configured Cloudflare cookies & userAgent first (Direct connection)
+    const bypass = getBypassConfig();
+    if (bypass.cfCookie && bypass.userAgent) {
       try {
-        const agent = new HttpsProxyAgent(proxyUrl);
         response = await axios.get(embedUrl, {
-          headers: { ...HEADERS, 'Referer': new URL(embedUrl).origin + '/' },
+          headers: {
+            ...HEADERS,
+            'User-Agent': bypass.userAgent,
+            'Cookie': bypass.cfCookie,
+            'Referer': new URL(embedUrl).origin + '/'
+          },
           timeout: 10000,
-          responseType: 'text',
-          httpsAgent: agent,
-          proxy: false // Tell Axios not to use its built-in proxy config
+          responseType: 'text'
         });
-
-        if (response && response.status === 200) {
-          break;
-        }
       } catch (err) {
         lastError = err;
-        console.error(`Proxy embed attempt ${attempt + 1} failed:`, err.message);
+        console.warn('Configured Cloudflare bypass direct request failed:', err.message);
       }
     }
 
-    // Ultimate fallback: direct connection
+    // 2. If direct direct request failed or not configured, try with proxies and bypass cookies
+    if (!response) {
+      // Shuffle and try up to 3 random proxies using HttpsProxyAgent
+      const shuffledProxies = [...PROXIES].sort(() => 0.5 - Math.random());
+      const maxAttempts = Math.min(3, shuffledProxies.length);
+
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const proxyUrl = shuffledProxies[attempt];
+        try {
+          const agent = new HttpsProxyAgent(proxyUrl);
+          
+          const requestHeaders = {
+            ...HEADERS,
+            'Referer': new URL(embedUrl).origin + '/'
+          };
+          if (bypass.cfCookie && bypass.userAgent) {
+            requestHeaders['Cookie'] = bypass.cfCookie;
+            requestHeaders['User-Agent'] = bypass.userAgent;
+          }
+
+          response = await axios.get(embedUrl, {
+            headers: requestHeaders,
+            timeout: 10000,
+            responseType: 'text',
+            httpsAgent: agent,
+            proxy: false // Tell Axios not to use its built-in proxy config
+          });
+
+          if (response && response.status === 200) {
+            break;
+          }
+        } catch (err) {
+          lastError = err;
+          console.error(`Proxy embed attempt ${attempt + 1} failed:`, err.message);
+        }
+      }
+    }
+
+    // 3. Ultimate fallback: direct connection
     if (!response) {
       try {
+        const requestHeaders = {
+          ...HEADERS,
+          'Referer': new URL(embedUrl).origin + '/'
+        };
+        if (bypass.cfCookie && bypass.userAgent) {
+          requestHeaders['Cookie'] = bypass.cfCookie;
+          requestHeaders['User-Agent'] = bypass.userAgent;
+        }
         response = await axios.get(embedUrl, {
-          headers: { ...HEADERS, 'Referer': new URL(embedUrl).origin + '/' },
+          headers: requestHeaders,
           timeout: 8000,
           responseType: 'text'
         });
