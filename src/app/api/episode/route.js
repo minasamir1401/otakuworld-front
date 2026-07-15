@@ -45,8 +45,26 @@ export async function GET(request) {
       return NextResponse.json({ success: false, error: 'Episode not found' }, { status: 404 });
     }
 
-    // 3. On-demand scraping: If servers or downloads are empty, scrape them now!
-    if (episode.servers.length === 0 || episode.downloads.length === 0) {
+    // Check if the current servers are expired (using 'exp' parameter in the URL)
+    let hasExpiredServers = false;
+    if (episode.servers.length > 0) {
+      const firstServerUrl = episode.servers[0].embedUrl;
+      try {
+        const urlObj = new URL(firstServerUrl);
+        const exp = urlObj.searchParams.get('exp');
+        if (exp) {
+          const expTimestamp = parseInt(exp, 10);
+          const currentTimestamp = Math.floor(Date.now() / 1000);
+          if (currentTimestamp > expTimestamp) {
+            console.log(`⏰ Found expired server links (exp: ${expTimestamp}, current: ${currentTimestamp}). Will re-scrape.`);
+            hasExpiredServers = true;
+          }
+        }
+      } catch (e) {}
+    }
+
+    // 3. On-demand scraping: If servers or downloads are empty OR expired, scrape them now!
+    if (episode.servers.length === 0 || episode.downloads.length === 0 || hasExpiredServers) {
       console.log(`📡 On-demand scraping sources for: ${episode.title}`);
       const { servers, downloads } = await scrapeEpisodeSources(episode.url);
 
