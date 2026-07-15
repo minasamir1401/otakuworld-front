@@ -87,6 +87,13 @@ export default function AdminPage() {
   const [settingsMessage, setSettingsMessage] = useState('');
   const [settingsError, setSettingsError] = useState('');
 
+  // Cloudflare settings
+  const [cfCookie, setCfCookie] = useState('');
+  const [userAgent, setUserAgent] = useState('');
+  const [cfMessage, setCfMessage] = useState('');
+  const [cfError, setCfError] = useState('');
+  const [isSavingCf, setIsSavingCf] = useState(false);
+
   // Check auth token on load
   useEffect(() => {
     const savedToken = localStorage.getItem('admin_token');
@@ -554,6 +561,56 @@ export default function AdminPage() {
       setSettingsError('خطأ أثناء إرسال البيانات');
     }
   };
+
+  // Fetch Cloudflare config
+  const fetchCfConfig = async (activeToken = token) => {
+    try {
+      const res = await fetch('/api/admin/config', {
+        headers: { 'Authorization': `Bearer ${activeToken}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCfCookie(data.cfCookie || '');
+        setUserAgent(data.userAgent || '');
+      }
+    } catch (err) {
+      console.error('Failed fetching Cloudflare config:', err);
+    }
+  };
+
+  // Update Cloudflare bypass settings
+  const handleUpdateCfConfig = async (e) => {
+    e.preventDefault();
+    setCfMessage('');
+    setCfError('');
+    setIsSavingCf(true);
+    try {
+      const res = await fetch('/api/admin/config', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ cfCookie, userAgent })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCfMessage(data.message);
+      } else {
+        setCfError(data.error || 'فشلت العملية');
+      }
+    } catch (err) {
+      setCfError('خطأ في الاتصال بالخادم');
+    } finally {
+      setIsSavingCf(false);
+    }
+  };
+
+  useEffect(() => {
+    if (token && activeTab === 'settings') {
+      fetchCfConfig();
+    }
+  }, [activeTab, token]);
 
   // Render Login Panel
   if (!token) {
@@ -1223,46 +1280,94 @@ export default function AdminPage() {
             </div>
           )}
 
-          {/* TAB 4: Credentials Settings */}
+          {/* TAB 4: Credentials & Cloudflare Settings */}
           {activeTab === 'settings' && (
-            <div className="glass-panel p-6 space-y-6 max-w-lg">
-              <h4 className="font-black text-base border-r-4 border-[var(--accent-purple)] pr-2 text-text-primary">تحديث بيانات لوحة التحكم الإدارية</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              
+              {/* Credentials form */}
+              <div className="glass-panel p-6 space-y-6">
+                <h4 className="font-black text-base border-r-4 border-[var(--accent-purple)] pr-2 text-text-primary">تحديث بيانات لوحة التحكم الإدارية</h4>
 
-              <form onSubmit={handleUpdateCredentials} className="space-y-4">
+                <form onSubmit={handleUpdateCredentials} className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="block text-xs font-black text-text-muted">اسم المستخدم الجديد</label>
+                    <input
+                      type="text"
+                      value={newUsername}
+                      onChange={(e) => setNewUsername(e.target.value)}
+                      required
+                      placeholder="مثال: custom_admin"
+                      className="w-full bg-bg-primary border border-border-glass rounded-xl px-4 py-3 text-xs text-text-primary placeholder-slate-450 focus:outline-none focus:border-[var(--accent-purple)] focus:bg-bg-secondary transition-all text-right"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-xs font-black text-text-muted">كلمة المرور الجديدة</label>
+                    <input
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      required
+                      placeholder="أدخل كلمة مرور قوية"
+                      className="w-full bg-bg-primary border border-border-glass rounded-xl px-4 py-3 text-xs text-text-primary placeholder-slate-450 focus:outline-none focus:border-[var(--accent-purple)] focus:bg-bg-secondary transition-all text-right"
+                    />
+                  </div>
+
+                  {settingsMessage && <p className="text-green-600 text-[10px] font-bold text-center">{settingsMessage}</p>}
+                  {settingsError && <p className="text-red-500 text-[10px] font-bold text-center">{settingsError}</p>}
+
+                  <button
+                    type="submit"
+                    className="w-full py-3 bg-[var(--accent-purple)] hover:bg-[var(--accent-cyan)] text-white text-xs font-black rounded-xl transition-all shadow-lg cursor-pointer"
+                  >
+                    حفظ البيانات الجديدة
+                  </button>
+                </form>
+              </div>
+
+              {/* Cloudflare Bypass settings form */}
+              <div className="glass-panel p-6 space-y-6">
                 <div className="space-y-1">
-                  <label className="block text-xs font-black text-text-muted">اسم المستخدم الجديد</label>
-                  <input
-                    type="text"
-                    value={newUsername}
-                    onChange={(e) => setNewUsername(e.target.value)}
-                    required
-                    placeholder="مثال: custom_admin"
-                    className="w-full bg-bg-primary border border-border-glass rounded-xl px-4 py-3 text-xs text-text-primary placeholder-slate-450 focus:outline-none focus:border-[var(--accent-purple)] focus:bg-bg-secondary transition-all text-right"
-                  />
+                  <h4 className="font-black text-base border-r-4 border-[var(--accent-cyan)] pr-2 text-text-primary">إعدادات تخطي حماية Cloudflare</h4>
+                  <p className="text-[9px] text-text-muted font-semibold">تجاوز الحظر 403 ومنع الاتصال من موقع eta.animerco.org.</p>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="block text-xs font-black text-text-muted">كلمة المرور الجديدة</label>
-                  <input
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    required
-                    placeholder="أدخل كلمة مرور قوية"
-                    className="w-full bg-bg-primary border border-border-glass rounded-xl px-4 py-3 text-xs text-text-primary placeholder-slate-450 focus:outline-none focus:border-[var(--accent-purple)] focus:bg-bg-secondary transition-all text-right"
-                  />
-                </div>
+                <form onSubmit={handleUpdateCfConfig} className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="block text-xs font-black text-text-muted">قيمة الكوكي (cf_clearance Cookie)</label>
+                    <textarea
+                      rows="3"
+                      value={cfCookie}
+                      onChange={(e) => setCfCookie(e.target.value)}
+                      placeholder="مثال: cf_clearance=abcd1234... أو الصق نص الـ Request Headers بالكامل"
+                      className="w-full bg-bg-primary border border-border-glass rounded-xl px-4 py-2 text-xs text-text-primary placeholder-slate-400 focus:outline-none focus:border-[var(--accent-purple)] focus:bg-bg-secondary transition-all text-right font-mono"
+                    />
+                  </div>
 
-                {settingsMessage && <p className="text-green-600 text-[10px] font-bold text-center">{settingsMessage}</p>}
-                {settingsError && <p className="text-red-500 text-[10px] font-bold text-center">{settingsError}</p>}
+                  <div className="space-y-1">
+                    <label className="block text-xs font-black text-text-muted">بصمة المتصفح (User-Agent)</label>
+                    <textarea
+                      rows="2"
+                      value={userAgent}
+                      onChange={(e) => setUserAgent(e.target.value)}
+                      placeholder="Mozilla/5.0 (Windows NT 10.0; Win64; x64) ..."
+                      className="w-full bg-bg-primary border border-border-glass rounded-xl px-4 py-2 text-xs text-text-primary placeholder-slate-400 focus:outline-none focus:border-[var(--accent-purple)] focus:bg-bg-secondary transition-all text-right font-mono"
+                    />
+                  </div>
 
-                <button
-                  type="submit"
-                  className="w-full py-3 bg-[var(--accent-purple)] hover:bg-[var(--accent-cyan)] text-white text-xs font-black rounded-xl transition-all shadow-lg cursor-pointer"
-                >
-                  حفظ البيانات الجديدة
-                </button>
-              </form>
+                  {cfMessage && <p className="text-green-600 text-[10px] font-bold text-center">{cfMessage}</p>}
+                  {cfError && <p className="text-red-500 text-[10px] font-bold text-center">{cfError}</p>}
+
+                  <button
+                    type="submit"
+                    disabled={isSavingCf}
+                    className="w-full py-3 bg-[var(--accent-cyan)] disabled:bg-[var(--accent-cyan)]/30 hover:bg-[var(--accent-purple)] text-white text-xs font-black rounded-xl transition-all shadow-lg cursor-pointer"
+                  >
+                    {isSavingCf ? 'جاري حفظ الإعدادات...' : 'حفظ إعدادات تخطي الحماية'}
+                  </button>
+                </form>
+              </div>
+
             </div>
           )}
 
