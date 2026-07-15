@@ -28,7 +28,7 @@ function reviveDates(obj) {
   return obj;
 }
 
-const makeQuery = async (model, method, args) => {
+const makeQuery = async (model, method, args, retries = 3) => {
   try {
     const res = await fetch(`${BACKEND_URL}/api/db-query`, {
       method: 'POST',
@@ -36,17 +36,23 @@ const makeQuery = async (model, method, args) => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${BACKEND_SECRET}`
       },
-      body: JSON.stringify({ model, method, args }),
-      // Keep-alive connection to prevent overhead on frequent queries
-      keepalive: true
+      body: JSON.stringify({ model, method, args })
     });
     if (!res.ok) {
+      if ((res.status === 502 || res.status === 503 || res.status === 504) && retries > 0) {
+        await new Promise(r => setTimeout(r, 300 * (4 - retries)));
+        return makeQuery(model, method, args, retries - 1);
+      }
       const errText = await res.text();
       throw new Error(errText || `HTTP error ${res.status}`);
     }
     const data = await res.json();
     return reviveDates(data);
   } catch (error) {
+    if (retries > 0 && (error.message.includes('fetch failed') || error.message.includes('socket') || error.message.includes('Bad Gateway') || error.message.includes('ECONNRESET'))) {
+      await new Promise(r => setTimeout(r, 300 * (4 - retries)));
+      return makeQuery(model, method, args, retries - 1);
+    }
     console.error(`[DB Proxy Error] Failed query: ${model}.${method}:`, error.message);
     throw error;
   }

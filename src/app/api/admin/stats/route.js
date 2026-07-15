@@ -1,25 +1,12 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
-import fs from 'fs';
-import path from 'path';
-
-const configPath = path.resolve(process.cwd(), 'admin_config.json');
-
-function readConfig() {
-  try {
-    if (fs.existsSync(configPath)) {
-      return JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    }
-  } catch (e) {}
-  return { username: 'admin', password: 'adminpassword' };
-}
+import { getAdminConfig } from '@/lib/adminAuth';
 
 let BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
 if (BACKEND_URL && !BACKEND_URL.startsWith('http://') && !BACKEND_URL.startsWith('https://')) {
   BACKEND_URL = 'https://' + BACKEND_URL;
 }
 const BACKEND_SECRET = process.env.BACKEND_SECRET || 'otakuworld-secret-2025';
-
 
 async function getBackendScraperStatus() {
   try {
@@ -45,28 +32,37 @@ export async function GET(request) {
   try {
     // Auth validation
     const authHeader = request.headers.get('Authorization');
-    const config = readConfig();
+    const config = await getAdminConfig();
     const currentToken = Buffer.from(`${config.username}:${config.password}`).toString('base64');
 
     if (!authHeader || authHeader !== `Bearer ${currentToken}`) {
       return NextResponse.json({ success: false, error: 'غير مصرح بالدخول' }, { status: 403 });
     }
 
-    // Database counts
-    const animeCount = await prisma.anime.count();
-    const tvCount = await prisma.anime.count({ where: { type: { not: 'Movie' } } });
-    const movieCount = await prisma.anime.count({ where: { type: 'Movie' } });
-    const seasonsCount = await prisma.season.count();
-    const episodesCount = await prisma.episode.count();
-    const serversCount = await prisma.videoServer.count();
-    const downloadsCount = await prisma.downloadLink.count();
+    // Database counts executed sequentially/safely to avoid socket pool exhaustion
+    const safeCount = async (fn) => {
+      try {
+        return await fn();
+      } catch (e) {
+        console.error('[Stats Count Error]:', e.message);
+        return 0;
+      }
+    };
+
+    const animeCount = await safeCount(() => prisma.anime.count());
+    const tvCount = await safeCount(() => prisma.anime.count({ where: { type: { not: 'Movie' } } }));
+    const movieCount = await safeCount(() => prisma.anime.count({ where: { type: 'Movie' } }));
+    const seasonsCount = await safeCount(() => prisma.season.count());
+    const episodesCount = await safeCount(() => prisma.episode.count());
+    const serversCount = await safeCount(() => prisma.videoServer.count());
+    const downloadsCount = await safeCount(() => prisma.downloadLink.count());
 
     // Visitor Stats
-    const totalVisits = await prisma.visit.count();
+    const totalVisits = await safeCount(() => prisma.visit.count());
     const past24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const visits24h = await prisma.visit.count({
+    const visits24h = await safeCount(() => prisma.visit.count({
       where: { createdAt: { gte: past24h } }
-    });
+    }));
 
     // Top 10 Visited Pages
     const topPagesRaw = await prisma.visit.groupBy({
