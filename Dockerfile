@@ -29,18 +29,7 @@ RUN npx prisma generate
 WORKDIR /app/Frontend
 RUN npx prisma generate
 
-# Push schema changes to database (creates AppConfig table if needed)
-# DATABASE_URL comes from the .env file copied with source code or from build arg
-ARG DATABASE_URL
-RUN if [ -n "$DATABASE_URL" ]; then \
-      echo "Running prisma db push with provided DATABASE_URL..." && \
-      DATABASE_URL="$DATABASE_URL" npx prisma db push --skip-generate --accept-data-loss || echo "⚠️ prisma db push failed (DB may not be reachable during build), will retry at runtime"; \
-    elif [ -f .env ]; then \
-      echo "Running prisma db push with .env file..." && \
-      npx prisma db push --skip-generate --accept-data-loss || echo "⚠️ prisma db push failed, will retry at runtime"; \
-    else \
-      echo "⚠️ No DATABASE_URL available, skipping db push"; \
-    fi
+
 
 # Build the Next.js production bundle
 RUN npm run build
@@ -67,6 +56,7 @@ ENV PORT=3000
 ENV NODE_ENV=production
 
 # Start command
-# Boot Next.js in production mode.
-CMD ["sh", "-c", "npm run start"]
+# Try to push schema changes (creates AppConfig table if needed), then start Next.js
+# || true ensures Next.js starts even if db push fails
+CMD ["sh", "-c", "npx prisma db push --skip-generate --accept-data-loss 2>&1 || true; npm run start"]
 
