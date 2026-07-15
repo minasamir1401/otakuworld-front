@@ -1,24 +1,16 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import prisma from '@/lib/prisma';
 
-const configPath = path.resolve(process.cwd(), 'admin_config.json');
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'adminpassword';
 
-function readConfig() {
+async function getConfig() {
   try {
-    if (fs.existsSync(configPath)) {
-      return JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    }
-  } catch (e) {}
-  return { username: 'admin', password: 'adminpassword' };
-}
-
-function writeConfig(config) {
-  try {
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
-    return true;
+    const config = await prisma.appConfig.findUnique({ where: { id: 'singleton' } });
+    return config || { username: ADMIN_USERNAME, password: ADMIN_PASSWORD };
   } catch (e) {
-    return false;
+    console.error('Error reading AppConfig from DB:', e.message);
+    return { username: ADMIN_USERNAME, password: ADMIN_PASSWORD };
   }
 }
 
@@ -26,12 +18,13 @@ function writeConfig(config) {
 export async function GET(request) {
   try {
     const authHeader = request.headers.get('Authorization');
-    const config = readConfig();
-    const currentToken = Buffer.from(`${config.username}:${config.password}`).toString('base64');
+    const currentToken = Buffer.from(`${ADMIN_USERNAME}:${ADMIN_PASSWORD}`).toString('base64');
 
     if (!authHeader || authHeader !== `Bearer ${currentToken}`) {
       return NextResponse.json({ success: false, error: 'غير مصرح بالدخول' }, { status: 403 });
     }
+
+    const config = await getConfig();
 
     return NextResponse.json({
       success: true,
@@ -48,8 +41,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const authHeader = request.headers.get('Authorization');
-    const config = readConfig();
-    const currentToken = Buffer.from(`${config.username}:${config.password}`).toString('base64');
+    const currentToken = Buffer.from(`${ADMIN_USERNAME}:${ADMIN_PASSWORD}`).toString('base64');
 
     if (!authHeader || authHeader !== `Bearer ${currentToken}`) {
       return NextResponse.json({ success: false, error: 'غير مصرح بالدخول' }, { status: 403 });
@@ -58,14 +50,22 @@ export async function POST(request) {
     const body = await request.json();
     const { cfCookie, userAgent, cfProxy } = body;
 
-    config.cfCookie = cfCookie || '';
-    config.userAgent = userAgent || '';
-    config.cfProxy = cfProxy || '';
-
-    const saved = writeConfig(config);
-    if (!saved) {
-      return NextResponse.json({ success: false, error: 'فشل حفظ الإعدادات على السيرفر' }, { status: 500 });
-    }
+    await prisma.appConfig.upsert({
+      where: { id: 'singleton' },
+      create: {
+        id: 'singleton',
+        cfCookie: cfCookie || '',
+        userAgent: userAgent || '',
+        cfProxy: cfProxy || '',
+        username: ADMIN_USERNAME,
+        password: ADMIN_PASSWORD
+      },
+      update: {
+        cfCookie: cfCookie || '',
+        userAgent: userAgent || '',
+        cfProxy: cfProxy || ''
+      }
+    });
 
     return NextResponse.json({ success: true, message: 'تم حفظ إعدادات تخطي الحماية بنجاح!' });
   } catch (error) {

@@ -1,7 +1,6 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
-import fs from 'fs';
-import path from 'path';
+import prisma from '@/lib/prisma';
 
 const BASE_URL = 'https://eta.animerco.org';
 
@@ -11,21 +10,27 @@ const HEADERS = {
   'Accept-Language': 'ar,en-US;q=0.7,en;q=0.3'
 };
 
-function getBypassHeaders() {
+let _cachedConfig = null;
+let _cacheTime = 0;
+
+async function getBypassHeaders() {
   const headers = { ...HEADERS };
   try {
-    const configPath = path.resolve(process.cwd(), 'admin_config.json');
-    if (fs.existsSync(configPath)) {
-      const data = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-      if (data.cfCookie) {
-        headers['Cookie'] = data.cfCookie;
+    // Cache config for 60 seconds to avoid too many DB reads
+    if (!_cachedConfig || Date.now() - _cacheTime > 60000) {
+      _cachedConfig = await prisma.appConfig.findUnique({ where: { id: 'singleton' } });
+      _cacheTime = Date.now();
+    }
+    if (_cachedConfig) {
+      if (_cachedConfig.cfCookie) {
+        headers['Cookie'] = _cachedConfig.cfCookie;
       }
-      if (data.userAgent) {
-        headers['User-Agent'] = data.userAgent;
+      if (_cachedConfig.userAgent) {
+        headers['User-Agent'] = _cachedConfig.userAgent;
       }
     }
   } catch (e) {
-    console.error('Error reading bypass config in scraper:', e.message);
+    console.error('Error reading bypass config from DB:', e.message);
   }
   return headers;
 }
