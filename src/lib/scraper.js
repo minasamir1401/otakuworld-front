@@ -88,13 +88,15 @@ export async function extractDirectVideoUrl(serverName, embedUrl) {
   const name = serverName.toLowerCase();
   try {
     if (name.includes('mp4upload')) {
-      const res = await axios.get(embedUrl, { headers: getBypassHeaders(), timeout: 5000 });
+      const headers = await getBypassHeaders();
+      const res = await axios.get(embedUrl, { headers, timeout: 5000 });
       const match = res.data.match(/src\s*:\s*["'](https?:\/\/[^"']+\.mp4[^"']*)["']/i);
       if (match) return match[1];
     } else if (name.includes('uqload')) {
       const fileCodeMatch = embedUrl.match(/\/e\/([a-zA-Z0-9]+)/);
       if (fileCodeMatch) {
         const fileCode = fileCodeMatch[1];
+        const bypassHeaders = await getBypassHeaders();
         const res = await axios.post('https://uqload.is/dl', new URLSearchParams({
           op: 'embed',
           file_code: fileCode,
@@ -102,30 +104,18 @@ export async function extractDirectVideoUrl(serverName, embedUrl) {
           referer: 'https://eta.animerco.org/'
         }), {
           headers: {
-            ...getBypassHeaders(),
+            ...bypassHeaders,
             'Referer': embedUrl
           },
           timeout: 6000
         });
 
-        const $ = cheerio.load(res.data);
-        let foundUrl = null;
-        $('script').each((i, el) => {
-          const content = $(el).html();
-          if (content && content.includes('eval(function(p,a,c,k,e,d)')) {
-            const unpacked = unpackUqload(content);
-            if (unpacked) {
-              const urlMatch = unpacked.match(/["'](https?:\/\/[^"']+\.(?:m3u8|mp4)[^"']*)["']/i);
-              if (urlMatch) {
-                foundUrl = urlMatch[1];
-              }
-            }
-          }
-        });
-        if (foundUrl) return foundUrl;
+        const urlMatch = res.data.match(/sources\s*:\s*\[\s*["'](https?:\/\/[^"']+)["']/i);
+        if (urlMatch) return urlMatch[1];
       }
     } else if (name.includes('ok')) {
-      const res = await axios.get(embedUrl, { headers: getBypassHeaders(), timeout: 5000 });
+      const headers = await getBypassHeaders();
+      const res = await axios.get(embedUrl, { headers, timeout: 5000 });
       const $ = cheerio.load(res.data);
       const dataOptions = $('div[data-options]').attr('data-options');
       if (dataOptions) {
@@ -142,7 +132,8 @@ export async function extractDirectVideoUrl(serverName, embedUrl) {
         }
       }
     } else if (name.includes('streamruby') || name.includes('stmruby') || name.includes('سيرفر 1') || embedUrl.includes('streamruby') || embedUrl.includes('stmruby')) {
-      const res = await axios.get(embedUrl, { headers: getBypassHeaders(), timeout: 6000 });
+      const headers = await getBypassHeaders();
+      const res = await axios.get(embedUrl, { headers, timeout: 6000 });
       const content = res.data;
       if (content.includes('eval(function(p,a,c,k,e,d)')) {
         const unpacked = unpackUqload(content);
@@ -161,7 +152,8 @@ export async function extractDirectVideoUrl(serverName, embedUrl) {
 // Resolve Direct Download Link from a redirect page
 export async function resolveDownloadLink(redirectUrl) {
   try {
-    const response = await axios.get(redirectUrl, { headers: getBypassHeaders() });
+    const headers = await getBypassHeaders();
+    const response = await axios.get(redirectUrl, { headers });
     const $ = cheerio.load(response.data);
     const safeData = $('#link').attr('data-safe');
     
@@ -183,7 +175,7 @@ export async function scrapeEpisodeSources(episodeUrl) {
     try {
       // 1. Scrape Watch Servers
       const watchUrl = episodeUrl.endsWith('/') ? `${episodeUrl}watch` : `${episodeUrl}/watch`;
-      const watchRes = await axios.get(watchUrl, { headers: getBypassHeaders(), timeout: 15000 });
+      const watchRes = await axios.get(watchUrl, { headers: await getBypassHeaders(), timeout: 15000 });
       const watch$ = cheerio.load(watchRes.data);
 
       watch$('.server-btn').each((i, el) => {
@@ -196,7 +188,7 @@ export async function scrapeEpisodeSources(episodeUrl) {
 
       // 2. Scrape Download Links
       const downloadUrl = episodeUrl.endsWith('/') ? `${episodeUrl}download` : `${episodeUrl}/download`;
-      const downloadRes = await axios.get(downloadUrl, { headers: getBypassHeaders(), timeout: 15000 });
+      const downloadRes = await axios.get(downloadUrl, { headers: await getBypassHeaders(), timeout: 15000 });
       const download$ = cheerio.load(downloadRes.data);
 
       download$('a.download-btn').each((i, el) => {
@@ -222,7 +214,7 @@ export async function scrapeEpisodeSources(episodeUrl) {
   }
 
   try {
-    const response = await axios.get(episodeUrl, { headers: getBypassHeaders() });
+    const response = await axios.get(episodeUrl, { headers: await getBypassHeaders() });
     const html = response.data;
     const $ = cheerio.load(html);
 
@@ -253,6 +245,7 @@ export async function scrapeEpisodeSources(episodeUrl) {
 
       if (post && nume && type) {
         try {
+          const bypassHeaders = await getBypassHeaders();
           const ajaxRes = await axios.post(`${BASE_URL}/wp-admin/admin-ajax.php`, 
             new URLSearchParams({
               action: 'player_ajax',
@@ -262,7 +255,7 @@ export async function scrapeEpisodeSources(episodeUrl) {
               type: type
             }), {
               headers: {
-                ...getBypassHeaders(),
+                ...bypassHeaders,
                 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
                 'X-Requested-With': 'XMLHttpRequest',
                 'Referer': episodeUrl
@@ -273,9 +266,10 @@ export async function scrapeEpisodeSources(episodeUrl) {
           const embedRedirectUrl = ajaxRes.data?.embed_url;
           if (embedRedirectUrl) {
             // Fetch the JWPlayer HTML page to get the raw iframe source (e.g. ok.ru/videoembed/...)
+            const jwBypassHeaders = await getBypassHeaders();
             const jwRes = await axios.get(embedRedirectUrl, {
               headers: {
-                ...getBypassHeaders(),
+                ...jwBypassHeaders,
                 'Referer': episodeUrl
               }
             });
