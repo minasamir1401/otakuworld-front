@@ -1,6 +1,7 @@
 {
   "username": "admin",
   "password": "adminpassword",
-  "cfCookie": "cf_clearance=uU1JK7Rfs3fzudRI7sHDL5.qljUJavJ6pyRB0cOWS2w-1784142741-1.2.1.1-OHSyU9CQtpV6hDy7x4fSQ8RdeGZnl3p_h4_1LrT7QI3X3uF57na9FWsGmFccJkZtC0Ov7u8pvtW_1VjLeWu5EBMcX.pm6yBqAhr.91eop.rwZ7s2sLHAacO.gmQleFLsGvQakNo9RxyPzer7FH3fNz5qmV1idbNdO0SkevxCkTcafMjCxndCwRPfETCPD5SMnMrkjXXiPze9GfQP0uR2hZzGZ9Gavngjpawot.Zvo7TTUXJRkkpQdeSBqwcOJKHZy4G7liW91dOVuWFErotdpRb.dTST6Oljx5zBG5y.SEyxz8FBSeH3lMUzf4kr_3WOtYzSZNV0iiwzeHJxuc7Eqw",
-  "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+  "cfCookie": "cf_clearance=MTqpdcl71RG6uu5N86rZyxn0BjjQ_sOTLBj2hxyPDgA-1784143982-1.2.1.1-B2vMxoC9fQ5NbB7Ksw2c3Rc_ZOsZMDhwDDTr19ExMLyUCLXlNmijh_2a7tu4voSCwPk6jYMlZd03t_7SU_lmDmeLm5F5INFmPvcYaryPz0mPYEy307I8ksEvtHTayxBmCKDtpzcpQRtl.yory9x6uMcg0yElA58HeB66qUwAGfiFU2lC2LpY685YX9bEFPRV.DxoF6u7Nk_4_fetGDyqZIfgHzjunZZZ_.C82VbEEX8BwxtrhRuYDm0paYX5db33GgIQEZU6ZpOTGX7mnNiSyUKQggPS_E_tOwm0aNAYwXXEHseVN9yHOoAzZH5nFthiOoHAfQgMNuxQxuxIWd1Qkg",
+  "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+  "cfProxy": null
 }

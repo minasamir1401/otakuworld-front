@@ -246,10 +246,23 @@ export async function GET(request) {
       },
     });
   } catch (err) {
-    console.error('Proxy embed error:', err.message);
-    return new NextResponse(
-      `<html><body style="background:#000;color:#fff;text-align:center;padding:40px;font-family:sans-serif;"><p>⚠️ تعذر تحميل السيرفر<br><small>${err.message}</small></p></body></html>`,
-      { status: 200, headers: { 'Content-Type': 'text/html' } }
-    );
+    console.error('Proxy embed error, falling back to direct redirect:', err.message);
+    const htmlRedirect = `
+      <!DOCTYPE html>
+      <html>
+      <body style="margin:0;padding:0;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;direction:rtl;">
+        <div style="text-align:center;">
+          <p style="font-size:14px;">⏳ جاري تحويلك إلى السيرفر المباشر لتجاوز الحظر...</p>
+          <script>
+            window.location.replace(${JSON.stringify(embedUrl)});
+          </script>
+        </div>
+      </body>
+      </html>
+    `;
+    return new NextResponse(htmlRedirect, {
+      status: 200,
+      headers: { 'Content-Type': 'text/html; charset=utf-8' }
+    });
   }
 }
