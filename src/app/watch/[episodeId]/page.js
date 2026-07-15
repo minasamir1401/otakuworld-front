@@ -6,7 +6,7 @@ import Script from 'next/script';
 import { useLanguage } from '../../../components/LanguageContext';
 
 const getProxyImageUrl = (url) => {
-  if (!url) return 'https://via.placeholder.com/300x400';
+  if (!url) return 'https://placehold.co//1a1a2e/ffffff?text=No+Image';
   if (url.startsWith('/')) return url;
   return `/api/proxy-image?url=${encodeURIComponent(url)}`;
 };

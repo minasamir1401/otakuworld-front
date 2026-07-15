@@ -870,7 +870,7 @@ export default function AdminPage() {
                           {animes.map((anime) => (
                             <tr key={anime.id} className="hover:bg-bg-primary/50 transition-all">
                               <td className="p-4">
-                                <img src={anime.poster || 'https://via.placeholder.com/150'} alt="" className="w-8 aspect-[3/4] object-cover rounded-md border border-border-glass" />
+                                <img src={anime.poster || 'https://placehold.co/150x150/1a1a2e/ffffff?text=No+Image'} alt="" className="w-8 aspect-[3/4] object-cover rounded-md border border-border-glass" />
                               </td>
                               <td className="p-4 text-text-primary">
                                 <span className="block font-black">{anime.title}</span>

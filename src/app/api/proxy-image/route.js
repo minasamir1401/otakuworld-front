@@ -30,7 +30,7 @@ export async function GET(request) {
     });
 
     if (!response.ok) {
-      return NextResponse.redirect(`https://via.placeholder.com/300x400?text=No+Image`);
+      return NextResponse.redirect(`https://placehold.co/300x400/1a1a2e/ffffff?text=No+Image`);
     }
 
     const contentType = response.headers.get('content-type') || 'image/jpeg';
@@ -44,6 +44,6 @@ export async function GET(request) {
     });
   } catch (error) {
     console.error('Image proxy error:', error.message);
-    return NextResponse.redirect(`https://via.placeholder.com/300x400?text=Error`);
+    return NextResponse.redirect(`https://placehold.co/300x400/1a1a2e/ffffff?text=Error`);
   }
 }
