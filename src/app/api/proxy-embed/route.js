@@ -1,22 +1,18 @@
 import { NextResponse } from 'next/server';
 import axios from 'axios';
 import { HttpsProxyAgent } from 'https-proxy-agent';
-import fs from 'fs';
-import path from 'path';
+import { getAdminConfig } from '@/lib/adminAuth';
 
-const configPath = path.resolve(process.cwd(), 'admin_config.json');
-
-function getBypassConfig() {
+async function getBypassConfig() {
   try {
-    if (fs.existsSync(configPath)) {
-      const data = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-      return {
-        cfCookie: data.cfCookie || '',
-        userAgent: data.userAgent || ''
-      };
-    }
+    const config = await getAdminConfig();
+    return {
+      cfCookie: config?.cfCookie || '',
+      userAgent: config?.userAgent || '',
+      cfProxy: config?.cfProxy || null
+    };
   } catch (e) {}
-  return { cfCookie: '', userAgent: '' };
+  return { cfCookie: '', userAgent: '', cfProxy: null };
 }
 
 const AD_DOMAINS = [
@@ -144,9 +140,10 @@ const PROXIES = [
 ];
 
 export async function GET(request) {
+  let embedUrl = '';
   try {
     const { searchParams } = new URL(request.url);
-    const embedUrl = searchParams.get('url');
+    embedUrl = searchParams.get('url');
 
     if (!embedUrl || !embedUrl.startsWith('http')) {
       return new NextResponse('Invalid url', { status: 400 });
@@ -156,7 +153,7 @@ export async function GET(request) {
     let lastError = null;
 
     // 1. Try using the admin-configured Cloudflare cookies & userAgent first
-    const bypass = getBypassConfig();
+    const bypass = await getBypassConfig();
     if (bypass.cfCookie && bypass.userAgent) {
       try {
         const agent = bypass.cfProxy ? new HttpsProxyAgent(bypass.cfProxy) : null;
@@ -178,7 +175,7 @@ export async function GET(request) {
       }
     }
 
-    // 2. If direct direct request failed or not configured, try with proxies and bypass cookies
+    // 2. If direct request failed or not configured, try with proxies and bypass cookies
     if (!response) {
       // Shuffle and try up to 3 random proxies using HttpsProxyAgent
       const shuffledProxies = [...PROXIES].sort(() => 0.5 - Math.random());
@@ -247,6 +244,7 @@ export async function GET(request) {
     });
   } catch (err) {
     console.error('Proxy embed error, falling back to direct redirect:', err.message);
+    const safeUrl = embedUrl || 'https://eta.animerco.org';
     const htmlRedirect = `
       <!DOCTYPE html>
       <html>
@@ -254,7 +252,7 @@ export async function GET(request) {
         <div style="text-align:center;">
           <p style="font-size:14px;">⏳ جاري تحويلك إلى السيرفر المباشر لتجاوز الحظر...</p>
           <script>
-            window.location.replace(${JSON.stringify(embedUrl)});
+            window.location.replace(${JSON.stringify(safeUrl)});
           </script>
         </div>
       </body>
