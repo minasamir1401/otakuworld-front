@@ -1,5 +1,7 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
+import fs from 'fs';
+import path from 'path';
 
 const BASE_URL = 'https://eta.animerco.org';
 
@@ -8,6 +10,25 @@ const HEADERS = {
   'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
   'Accept-Language': 'ar,en-US;q=0.7,en;q=0.3'
 };
+
+function getBypassHeaders() {
+  const headers = { ...HEADERS };
+  try {
+    const configPath = path.resolve(process.cwd(), 'admin_config.json');
+    if (fs.existsSync(configPath)) {
+      const data = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      if (data.cfCookie) {
+        headers['Cookie'] = data.cfCookie;
+      }
+      if (data.userAgent) {
+        headers['User-Agent'] = data.userAgent;
+      }
+    }
+  } catch (e) {
+    console.error('Error reading bypass config in scraper:', e.message);
+  }
+  return headers;
+}
 
 // Helper to decode safe download URLs
 function decodeDownloadUrl(safeB64Str) {
@@ -62,7 +83,7 @@ export async function extractDirectVideoUrl(serverName, embedUrl) {
   const name = serverName.toLowerCase();
   try {
     if (name.includes('mp4upload')) {
-      const res = await axios.get(embedUrl, { headers: HEADERS, timeout: 5000 });
+      const res = await axios.get(embedUrl, { headers: getBypassHeaders(), timeout: 5000 });
       const match = res.data.match(/src\s*:\s*["'](https?:\/\/[^"']+\.mp4[^"']*)["']/i);
       if (match) return match[1];
     } else if (name.includes('uqload')) {
@@ -76,7 +97,7 @@ export async function extractDirectVideoUrl(serverName, embedUrl) {
           referer: 'https://eta.animerco.org/'
         }), {
           headers: {
-            ...HEADERS,
+            ...getBypassHeaders(),
             'Referer': embedUrl
           },
           timeout: 6000
@@ -99,7 +120,7 @@ export async function extractDirectVideoUrl(serverName, embedUrl) {
         if (foundUrl) return foundUrl;
       }
     } else if (name.includes('ok')) {
-      const res = await axios.get(embedUrl, { headers: HEADERS, timeout: 5000 });
+      const res = await axios.get(embedUrl, { headers: getBypassHeaders(), timeout: 5000 });
       const $ = cheerio.load(res.data);
       const dataOptions = $('div[data-options]').attr('data-options');
       if (dataOptions) {
@@ -116,7 +137,7 @@ export async function extractDirectVideoUrl(serverName, embedUrl) {
         }
       }
     } else if (name.includes('streamruby') || name.includes('stmruby') || name.includes('سيرفر 1') || embedUrl.includes('streamruby') || embedUrl.includes('stmruby')) {
-      const res = await axios.get(embedUrl, { headers: HEADERS, timeout: 6000 });
+      const res = await axios.get(embedUrl, { headers: getBypassHeaders(), timeout: 6000 });
       const content = res.data;
       if (content.includes('eval(function(p,a,c,k,e,d)')) {
         const unpacked = unpackUqload(content);
@@ -135,7 +156,7 @@ export async function extractDirectVideoUrl(serverName, embedUrl) {
 // Resolve Direct Download Link from a redirect page
 export async function resolveDownloadLink(redirectUrl) {
   try {
-    const response = await axios.get(redirectUrl, { headers: HEADERS });
+    const response = await axios.get(redirectUrl, { headers: getBypassHeaders() });
     const $ = cheerio.load(response.data);
     const safeData = $('#link').attr('data-safe');
     
@@ -157,7 +178,7 @@ export async function scrapeEpisodeSources(episodeUrl) {
     try {
       // 1. Scrape Watch Servers
       const watchUrl = episodeUrl.endsWith('/') ? `${episodeUrl}watch` : `${episodeUrl}/watch`;
-      const watchRes = await axios.get(watchUrl, { headers: HEADERS, timeout: 15000 });
+      const watchRes = await axios.get(watchUrl, { headers: getBypassHeaders(), timeout: 15000 });
       const watch$ = cheerio.load(watchRes.data);
 
       watch$('.server-btn').each((i, el) => {
@@ -170,7 +191,7 @@ export async function scrapeEpisodeSources(episodeUrl) {
 
       // 2. Scrape Download Links
       const downloadUrl = episodeUrl.endsWith('/') ? `${episodeUrl}download` : `${episodeUrl}/download`;
-      const downloadRes = await axios.get(downloadUrl, { headers: HEADERS, timeout: 15000 });
+      const downloadRes = await axios.get(downloadUrl, { headers: getBypassHeaders(), timeout: 15000 });
       const download$ = cheerio.load(downloadRes.data);
 
       download$('a.download-btn').each((i, el) => {
@@ -196,7 +217,7 @@ export async function scrapeEpisodeSources(episodeUrl) {
   }
 
   try {
-    const response = await axios.get(episodeUrl, { headers: HEADERS });
+    const response = await axios.get(episodeUrl, { headers: getBypassHeaders() });
     const html = response.data;
     const $ = cheerio.load(html);
 
@@ -236,7 +257,7 @@ export async function scrapeEpisodeSources(episodeUrl) {
               type: type
             }), {
               headers: {
-                ...HEADERS,
+                ...getBypassHeaders(),
                 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
                 'X-Requested-With': 'XMLHttpRequest',
                 'Referer': episodeUrl
@@ -249,7 +270,7 @@ export async function scrapeEpisodeSources(episodeUrl) {
             // Fetch the JWPlayer HTML page to get the raw iframe source (e.g. ok.ru/videoembed/...)
             const jwRes = await axios.get(embedRedirectUrl, {
               headers: {
-                ...HEADERS,
+                ...getBypassHeaders(),
                 'Referer': episodeUrl
               }
             });
